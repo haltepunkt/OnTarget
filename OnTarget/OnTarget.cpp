@@ -8,22 +8,52 @@ void OnTarget::onLoad()
 		cvarManager->executeCommand("togglemenu " + GetMenuName());
 	}, 1);
 
-	cvarManager->registerCvar("onTargetShotHistory", "128").addOnValueChanged([this](string old, CVarWrapper now) {
-		shotHistory = cvarManager->getCvar("onTargetShotHistory").getIntValue();
+	cvarManager->registerCvar(shotHistorySetting, "128").addOnValueChanged([this](string old, CVarWrapper now) {
+		shotHistory = now.getIntValue();
 
 		writeCfg();
 	});
 
-	cvarManager->registerCvar("onTargetTitleBar", "1").addOnValueChanged([this](string old, CVarWrapper now) {
-		titleBar = (cvarManager->getCvar("onTargetTitleBar").getStringValue() == "1");
+	cvarManager->registerCvar(titleBarSetting, "1").addOnValueChanged([this](string old, CVarWrapper now) {
+		titleBar = (now.getStringValue() == "1");
 
 		writeCfg();
 	});
 
 	cvarManager->registerCvar("onTargetTransparency", "0.5").addOnValueChanged([this](string old, CVarWrapper now) {
-		transparency = cvarManager->getCvar("onTargetTransparency").getFloatValue();
+		transparency = now.getFloatValue();
 
 		writeCfg();
+	});
+
+	cvarManager->registerCvar(goalHitColorSetting, "0,255,0").addOnValueChanged([this](string old, CVarWrapper now) {
+		ImColor color = stringToImColor(now.getStringValue());
+
+		if (color != NULL) {
+			goalHitColor = color;
+
+			writeCfg();
+		}
+	});
+
+	cvarManager->registerCvar(multiTouchColorSetting, "170,170,170").addOnValueChanged([this](string old, CVarWrapper now) {
+		ImColor color = stringToImColor(now.getStringValue());
+
+		if (color != NULL) {
+			multiTouchColor = color;
+
+			writeCfg();
+		}
+	});
+
+	cvarManager->registerCvar(wallHitColorSetting, "255,0,0").addOnValueChanged([this](string old, CVarWrapper now) {
+		ImColor color = stringToImColor(now.getStringValue());
+
+		if (color != NULL) {
+			wallHitColor = color;
+
+			writeCfg();
+		}
 	});
 
 	if (ifstream(configurationFilePath)) {
@@ -31,7 +61,11 @@ void OnTarget::onLoad()
 	}
 
 	else {
-		cvarManager->getCvar("onTargetShotHistory").notify();
+		vector<string> settings = { "onTargetShotHistory", "onTargetTitleBar", "onTargetTransparency", goalHitColorSetting, multiTouchColorSetting, wallHitColorSetting };
+
+		for (string& setting : settings) {
+			cvarManager->getCvar(setting).notify();
+		}
 	}
 
 	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.IncrementRound", bind(&OnTarget::onIncrementRound, this, placeholders::_1));
@@ -45,7 +79,9 @@ void OnTarget::onLoad()
 
 void OnTarget::onUnload()
 {
-	if (renderImgui) {
+	writeCfg();
+
+	if (renderShotChart) {
 		cvarManager->executeCommand("togglemenu " + GetMenuName());
 	}
 }
@@ -56,13 +92,47 @@ void OnTarget::writeCfg()
 
 	configurationFile.open(configurationFilePath);
 
-	configurationFile << "onTargetShotHistory \"" + cvarManager->getCvar("onTargetShotHistory").getStringValue() + "\"";
+	configurationFile << shotHistorySetting + " \"" + to_string(shotHistory) + "\"";
 	configurationFile << "\n";
-	configurationFile << "onTargetTitleBar \"" + cvarManager->getCvar("onTargetTitleBar").getStringValue() + "\"";
+	configurationFile << titleBarSetting + " \"" + to_string(titleBar) + "\"";
 	configurationFile << "\n";
-	configurationFile << "onTargetTransparency \"" + cvarManager->getCvar("onTargetTransparency").getStringValue() + "\"";
+	configurationFile << transparencySetting + " \"" + to_string(transparency) + "\"";
+	configurationFile << "\n";
+	configurationFile << goalHitColorSetting + " \"" + ImColorToString(goalHitColor) + "\"";
+	configurationFile << "\n";
+	configurationFile << multiTouchColorSetting + " \"" + ImColorToString(multiTouchColor) + "\"";
+	configurationFile << "\n";
+	configurationFile << wallHitColorSetting + " \"" + ImColorToString(wallHitColor) + "\"";
 
 	configurationFile.close();
+}
+
+ImColor OnTarget::stringToImColor(string colorString)
+{
+	if (colorString.length() >= 5) {
+		stringstream ss(colorString);
+
+		vector<string> rgb;
+
+		while (ss.good()) {
+			string value;
+
+			getline(ss, value, ',');
+
+			rgb.push_back(value);
+		}
+
+		if (rgb.size() == 3) {
+			return ImColor(stoi(rgb.at(0)), stoi(rgb.at(1)), stoi(rgb.at(2)));
+		}
+	}
+
+	return NULL;
+}
+
+string OnTarget::ImColorToString(ImColor color)
+{
+	return to_string((int)(color.Value.x * 255)) + "," + to_string((int)(color.Value.y * 255)) + "," + to_string((int)(color.Value.z * 255));
 }
 
 void OnTarget::onIncrementRound(string eventName)
@@ -165,7 +235,7 @@ ImVec2 OnTarget::flattenToPlane(Vector vector)
 
 void OnTarget::Render()
 {
-	if (!renderImgui) {
+	if (!renderShotChart) {
 		cvarManager->executeCommand("togglemenu " + GetMenuName());
 
 		return;
@@ -178,7 +248,34 @@ void OnTarget::Render()
 
 void OnTarget::RenderImGui()
 {
-	float scale = 0.5f;
+	if (renderSettings) {
+		ImGui::SetNextWindowPos(ImVec2(128, 256), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(0, 0));
+
+		ImGui::Begin((GetMenuTitle() + " - Settings").c_str(), &renderSettings, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
+
+		ImGui::Checkbox("Titlebar", &titleBar);
+		ImGui::InputInt("Shot History", &shotHistory, 1, 16, ImGuiInputTextFlags_CharsNoBlank | ImGuiInputTextFlags_AutoSelectAll);
+		ImGui::SliderFloat("Transparency", &transparency, 0.f, 1.f, "%.2f");
+
+		ImGui::Separator();
+
+		if (ImGui::ColorEdit3("Goal Hit", (float*)&goalHitColor, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoInputs)) {
+			cvarManager->getCvar(goalHitColorSetting).setValue(ImColorToString(goalHitColor));
+		}
+
+		if (ImGui::ColorEdit3("Wall Hit", (float*)&wallHitColor, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoInputs)) {
+			cvarManager->getCvar(wallHitColorSetting).setValue(ImColorToString(wallHitColor));
+		}
+
+		if (ImGui::ColorEdit3("Multi Touch", (float*)&multiTouchColor, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_NoInputs)) {
+			cvarManager->getCvar(multiTouchColorSetting).setValue(ImColorToString(multiTouchColor));
+		}
+
+		ImGui::End();
+	}
+
+	float scale = .5f;
 
 	float goalWidth = 178.f * scale, goalHeight = 64.f * scale;
 	float wallWidth = 818.f * scale, wallHeight = 204.f * scale;
@@ -200,7 +297,7 @@ void OnTarget::RenderImGui()
 	ImGui::SetNextWindowPos(ImVec2(128, 128), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowSize(ImVec2(wallWidth + 16, windowHeight));
 	
-	ImGui::Begin(GetMenuTitle().c_str(), &renderImgui, windowFlags);
+	ImGui::Begin(GetMenuTitle().c_str(), &renderShotChart, windowFlags);
 
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -226,20 +323,18 @@ void OnTarget::RenderImGui()
 	if (shots.size() > 0) {
 		float s = scale;
 
-		ImColor wallHitColor = LIGHTRED;
-		ImColor goalHitColor = LIGHTGREEN;
-
 		uint64_t attempts = 0, goals = 0;
 
 		for (uint64_t idx = 0; idx < shots.size(); idx++) {
 			if (idx + 1 == shots.size()) {
 				s = scale + 0.25f;
-
-				wallHitColor = RED;
-				goalHitColor = GREEN;
 			}
 
 			if (shots.at(idx).goal) {
+				if (idx + 1 == shots.size()) {
+					drawList->AddCircle(ImVec2(p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2), p.y + wallHeight - shots.at(idx).location.y * wallHeight), 10.f * s, WHITE, 16, 7);
+				}
+
 				drawList->AddCircle(ImVec2(p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2), p.y + wallHeight - shots.at(idx).location.y * wallHeight), 10.f * s, goalHitColor, 16, 3);
 
 				attempts++;
@@ -251,13 +346,24 @@ void OnTarget::RenderImGui()
 
 				drawList->AddLine(ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) - line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) - line),
 					ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) + line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) + line),
-					DARKGREY, 3);
+					multiTouchColor, 3);
 				drawList->AddLine(ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) - line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) + line),
 					ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) + line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) - line),
-					DARKGREY, 3);
+					multiTouchColor, 3);
 			}
 
 			else if (!shots.at(idx).goal && !shots.at(idx).multiTouch) {
+				if (idx + 1 == shots.size()) {
+					float line = 10 * s;
+
+					drawList->AddLine(ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) - line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) - line),
+						ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) + line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) + line),
+						WHITE, 7);
+					drawList->AddLine(ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) - line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) + line),
+						ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) + line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) - line),
+						WHITE, 7);
+				}
+
 				float line = 8 * s;
 
 				drawList->AddLine(ImVec2((p.x + (wallWidth / 2) + shots.at(idx).location.x * (wallWidth / 2)) - line, (p.y + wallHeight - shots.at(idx).location.y * wallHeight) - line),
@@ -279,6 +385,14 @@ void OnTarget::RenderImGui()
 	}
 
 	ImGui::PopStyleVar();
+
+	ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + ImGui::GetWindowWidth() - 76, ImGui::GetCursorPosY() + 6));
+
+	if (ImGui::IsMouseHoveringRect(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y), ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth(), ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+		if (ImGui::Button("Settings")) {
+			renderSettings = !renderSettings;
+		}
+	}
 
 	ImGui::End();
 }
@@ -310,10 +424,10 @@ bool OnTarget::IsActiveOverlay()
 
 void OnTarget::OnOpen()
 {
-	renderImgui = true;
+	renderShotChart = true;
 }
 
 void OnTarget::OnClose()
 {
-	renderImgui = false;
+	renderShotChart = false;
 }

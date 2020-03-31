@@ -1,18 +1,20 @@
 #pragma comment(lib, "BakkesMod.lib")
 
 #include <fstream>
+#include <sstream>
 
 #include "bakkesmod/plugin/bakkesmodplugin.h"
 #include "bakkesmod/plugin/pluginwindow.h"
 
 #include "imgui/imgui.h"
 
-#define RED ImColor(255, 0, 0, 255)
-#define LIGHTRED ImColor(170, 0, 0, 255)
-#define GREEN ImColor(0, 255, 0, 255)
-#define LIGHTGREEN ImColor(0, 170, 0, 255)
-#define GREY ImColor(170, 170, 170, 255)
-#define DARKGREY ImColor(85, 85, 85, 255)
+#define RED ImColor(255, 0, 0)
+#define LIGHTRED ImColor(170, 0, 0)
+#define GREEN ImColor(0, 255, 0)
+#define LIGHTGREEN ImColor(0, 170, 0)
+#define GREY ImColor(170, 170, 170)
+#define DARKGREY ImColor(85, 85, 85)
+#define WHITE ImColor(255, 255, 255)
 
 using namespace placeholders;
 
@@ -29,6 +31,9 @@ public:
 	void onUnload();
 
 	void writeCfg();
+
+	ImColor stringToImColor(string colorString);
+	string ImColorToString(ImColor color);
 
 	void onIncrementRound(string eventName);
 	void onTrainingLoad(string eventName);
@@ -49,13 +54,18 @@ public:
 	void OnOpen();
 	void OnClose();
 
-	bool renderImgui = false;
+	bool renderShotChart = false;
+	bool renderSettings = false;
 
 	string configurationFilePath = "./bakkesmod/cfg/ontarget.cfg";
 
-	int shotHistory = 128;
-	bool titleBar = true;
-	float transparency = 1;
+	string shotHistorySetting = "onTargetShotHistory", titleBarSetting = "onTargetTitleBar", transparencySetting = "onTargetTransparency";
+	int shotHistory;
+	bool titleBar;
+	float transparency;
+
+	string goalHitColorSetting = "onTargetGoalHitColorRGB", multiTouchColorSetting = "onTargetMultiTouchColorRGB", wallHitColorSetting = "onTargetWallHitColorRGB";
+	ImColor goalHitColor, wallHitColor, multiTouchColor;
 
 	uint64_t ballHitsRound = 0;
 	vector<Shot> shots;
