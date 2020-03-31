@@ -299,6 +299,8 @@ void OnTarget::RenderImGui()
 	
 	ImGui::Begin(GetMenuTitle().c_str(), &renderShotChart, windowFlags);
 
+	ImVec2 cursorPosition = ImGui::GetCursorPos();
+
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 
 	ImVec2 p = ImGui::GetCursorScreenPos();
@@ -386,7 +388,7 @@ void OnTarget::RenderImGui()
 
 	ImGui::PopStyleVar();
 
-	ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + ImGui::GetWindowWidth() - 76, ImGui::GetCursorPosY() + 6));
+	ImGui::SetCursorPos(ImVec2(cursorPosition.x + ImGui::GetWindowWidth() - 76, cursorPosition.y + 6));
 
 	if (ImGui::IsMouseHoveringRect(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y), ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth(), ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
 		if (ImGui::Button("Settings")) {
