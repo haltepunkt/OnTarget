@@ -390,7 +390,7 @@ void OnTarget::RenderImGui()
 
 	ImGui::SetCursorPos(ImVec2(cursorPosition.x + ImGui::GetWindowWidth() - 76, cursorPosition.y + 6));
 
-	if (ImGui::IsMouseHoveringRect(ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y), ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth(), ImGui::GetWindowPos().y + ImGui::GetWindowHeight()))) {
+	if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
 		if (ImGui::Button("Settings")) {
 			renderSettings = !renderSettings;
 		}
