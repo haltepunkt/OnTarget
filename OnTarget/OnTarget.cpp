@@ -68,10 +68,13 @@ void OnTarget::onLoad()
 		}
 	}
 
-	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.IncrementRound", bind(&OnTarget::onIncrementRound, this, placeholders::_1));
-	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.Load", bind(&OnTarget::onTrainingLoad, this, placeholders::_1));
-	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.OnResetRoundConfirm", bind(&OnTarget::onResetRoundConfirm, this, placeholders::_1));
+	gameWrapper->HookEvent("Function GameEvent_TrainingEditor_TA.Active.DestroyBall", bind(&OnTarget::onDestroyBall, this, placeholders::_1));
+
 	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.StartNewRound", bind(&OnTarget::onStartNewRound, this, placeholders::_1));
+
+	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.OnResetRoundConfirm", bind(&OnTarget::clearShotsResetCounts, this, placeholders::_1));
+	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.IncrementRound", bind(&OnTarget::clearShotsResetCounts, this, placeholders::_1));
+	gameWrapper->HookEvent("Function TAGame.GameEvent_TrainingEditor_TA.Load", bind(&OnTarget::clearShotsResetCounts, this, placeholders::_1));
 
 	gameWrapper->HookEventWithCaller<BallWrapper>("Function TAGame.Ball_TA.EventHitWorld", std::bind(&OnTarget::onHitWorld, this, placeholders::_1, placeholders::_2, placeholders::_3));
 	gameWrapper->HookEventWithCaller<BallWrapper>("Function TAGame.Ball_TA.EventHitGoal", std::bind(&OnTarget::onHitGoal, this, placeholders::_1, placeholders::_2, placeholders::_3));
@@ -135,27 +138,21 @@ string OnTarget::ImColorToString(ImColor color)
 	return to_string((int)(color.Value.x * 255)) + "," + to_string((int)(color.Value.y * 255)) + "," + to_string((int)(color.Value.z * 255));
 }
 
-void OnTarget::onIncrementRound(string eventName)
+void OnTarget::onDestroyBall(string eventName)
 {
-	ballHitsRound = 0;
-	shots.clear();
-}
-
-void OnTarget::onTrainingLoad(string eventName)
-{
-	ballHitsRound = 0;
-	shots.clear();
+	ballDestroyed++;
 }
 
 void OnTarget::onStartNewRound(string eventName)
 {
-	ballHitsRound = 0;
+	ballHit = 0;
 }
 
-void OnTarget::onResetRoundConfirm(string eventName)
+void OnTarget::clearShotsResetCounts(string eventName)
 {
-	ballHitsRound = 0;
 	shots.clear();
+
+	ballHit = 0, ballDestroyed = 0;
 }
 
 void OnTarget::onHitGoal(BallWrapper ball, void* params, string eventName)
@@ -170,9 +167,9 @@ void OnTarget::onHitGoal(BallWrapper ball, void* params, string eventName)
 				shots.erase(shots.begin());
 			}
 
-			ballHitsRound++;
+			ballHit++;
 
-			if (ballHitsRound > 1) {
+			if (ballHit > 1) {
 				Shot shot = shots.back();
 				shot.multiTouch = true;
 
@@ -196,9 +193,9 @@ void OnTarget::onHitWorld(BallWrapper ball, void* params, string eventName)
 				shots.erase(shots.begin());
 			}
 
-			ballHitsRound++;
+			ballHit++;
 
-			if (ballHitsRound > 1) {
+			if (ballHit > 1) {
 				Shot shot = shots.back();
 				shot.multiTouch = true;
 

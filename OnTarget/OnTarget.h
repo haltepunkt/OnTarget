@@ -35,10 +35,9 @@ public:
 	ImColor stringToImColor(string colorString);
 	string ImColorToString(ImColor color);
 
-	void onIncrementRound(string eventName);
-	void onTrainingLoad(string eventName);
+	void onDestroyBall(string eventName);
 	void onStartNewRound(string eventName);
-	void onResetRoundConfirm(string eventName);
+	void clearShotsResetCounts(string eventName);
 
 	void onHitGoal(BallWrapper ball, void* params, string eventName);
 	void onHitWorld(BallWrapper ball, void* params, string eventName);
@@ -67,6 +66,6 @@ public:
 	string goalHitColorSetting = "onTargetGoalHitColorRGB", multiTouchColorSetting = "onTargetMultiTouchColorRGB", wallHitColorSetting = "onTargetWallHitColorRGB";
 	ImColor goalHitColor, wallHitColor, multiTouchColor;
 
-	uint64_t ballHitsRound = 0;
+	uint64_t ballHit = 0, ballDestroyed = 0;
 	vector<Shot> shots;
 };
